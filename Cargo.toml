@@ -1,0 +1,11 @@
+[package]
+name = "op_ssh_helper"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dirs = "6.0.0"
+regex = "1.12.3"
+ssh2-config = "0.7.0"
+sysinfo = "0.38.4"
+rpassword = "7.5.1"
