@@ -3,6 +3,8 @@
 
 An SSH `askpass` implementation that wraps around the [1Password CLI](https://developer.1password.com/docs/cli).
 
+# Usage
+
 It is driven by OpenSSH, and the 1Password [secret reference](https://developer.1password.com/docs/cli/secret-references) to read is driven by a custom `OnepassUri` directive in the configuration:
 
 ```ssh_config
@@ -11,6 +13,20 @@ IgnoreUnknown OnepassUri
 Host myserver
     User myuser
     OnepassUri "op://Vault/My Server/password"
+```
+
+# Installation
+
+On macOS or Linux, install with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chrismooredev/op_askpass/main/install_op_askpass.sh | bash -
+```
+
+On Windows PowerShell, install with:
+
+```powershell
+irm https://raw.githubusercontent.com/chrismooredev/op_askpass/main/install_op_askpass.ps1 | iex
 ```
 
 # Just use keys......
