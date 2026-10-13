@@ -160,7 +160,7 @@ fn main() -> ExitCode {
                                 let op_status = OnepassCli::from_command();
                                 if v >= 1 { eprintln!("Done checking 1Password CLI status"); }
                                 match op_status {
-                                    Err(err) => eprintln!("op_askpass: {err}"),
+                                    Err(err) => eprintln!("op_askpass: err {err}"),
                                     Ok(op) => {
                                         if v >= 1 { eprintln!("Reading 1Password CLI secret"); }
                                         let op_secret = op.read(uri);

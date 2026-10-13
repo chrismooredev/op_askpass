@@ -42,7 +42,7 @@ impl OnepassSession {
         let exit_status = who.wait().expect("Failed on waiting for `op whoami` to finish");
 
         if exit_status.success() {
-            Ok(OnepassCli(self.clone()))
+            Ok(OnepassCli::Session(self.clone()))
         } else {
             let mut stderr = String::new();
             who.stderr.unwrap().read_to_string(&mut stderr).expect("Unable to read stderr from failed process");
@@ -60,8 +60,18 @@ impl fmt::Debug for OnepassSession {
 }
 
 
+/// A validated means of invoking the 1Password CLI.
+///
+/// `Session` wraps an explicit `OP_SESSION_*` environment variable, passed via
+/// `op`'s `--session` flag. `Agent` indicates no such variable was found, but
+/// `op` is still able to authenticate on its own (e.g. via the native
+/// desktop app integration/"op agent", commonly used on macOS) - so commands
+/// are run without a `--session` flag, relying on `op` to handle auth itself.
 #[derive(Debug, Clone)]
-pub struct OnepassCli(OnepassSession);
+pub enum OnepassCli {
+    Session(OnepassSession),
+    Agent,
+}
 
 #[derive(Debug, Clone)]
 pub struct InvalidOnepassSession(String);
@@ -121,11 +131,31 @@ impl OnepassCli {
 
         let output = who.wait_with_output().expect("Failed on waiting for `op whoami` to finish");
 
-        Err(InvalidOnepassSession(String::from_utf8_lossy(output.stderr.trim_ascii()).to_string()))
+        let out = String::from_utf8_lossy(output.stdout.trim_ascii()).to_string();
+        let err = String::from_utf8_lossy(output.stderr.trim_ascii()).to_string();
+
+        let mut msg = String::new();
+        if !out.is_empty() { msg.push_str("stdout: "); msg.push_str(&out); }
+        if !err.is_empty() { msg.push_str("stderr: "); msg.push_str(&err); }
+
+        if err.is_empty() && output.status.success() {
+            // `op whoami` succeeded without any `OP_SESSION_*` env var being set - this
+            // happens when `op` authenticates on its own, e.g. via the native desktop
+            // app integration/"op agent" (commonly used on macOS). Treat this as a
+            // valid, non-error authentication method rather than failing.
+            return Ok(OnepassCli::Agent);
+        }
+
+        Err(InvalidOnepassSession(msg))
     }
 
     pub fn read(&self, op_uri: &str) -> io::Result<String> {
-        let pwd = std::process::Command::new("op").args(["read", op_uri, "--session", &self.0.secret]).stdout(std::process::Stdio::piped()).spawn()?;
+        let mut cmd = std::process::Command::new("op");
+        cmd.arg("read").arg(op_uri);
+        if let OnepassCli::Session(session) = self {
+            cmd.args(["--session", &session.secret]);
+        }
+        let pwd = cmd.stdout(std::process::Stdio::piped()).spawn()?;
         let pwd_out = pwd.wait_with_output()?;
         if !pwd_out.status.success() {
             return Err(io::Error::other(format!(
