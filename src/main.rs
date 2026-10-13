@@ -1,6 +1,4 @@
-#![warn(clippy::pendantic)]
-#![feature(exit_status_error)]
-#![feature(string_from_utf8_lossy_owned)]
+#![warn(clippy::pedantic)]
 
 use std::ffi::OsString;
 use std::fs::File;
@@ -12,8 +10,9 @@ use regex::Regex;
 use ssh2_config::{HostParams, ParseRule, SshConfig};
 use sysinfo::{KillError, Pid};
 
+use crate::onepass::OnepassCli;
+
 mod onepass;
-use onepass::*;
 
 pub struct HostConfig(pub HostParams);
 impl HostConfig {
@@ -59,7 +58,7 @@ impl ParentProc {
 
             let vees = s.chars()
                 .skip(1)
-                .take_while(|c| c.is_ascii_alphabetic())
+                .take_while(char::is_ascii_alphabetic)
                 .filter(|c| *c == 'v')
                 .count();
 
@@ -76,12 +75,7 @@ fn process_parents() -> Vec<ParentProc> {
     let mut pid_res = Some(sysinfo::get_current_pid().expect("process pid unavailable"));
 
     while let Some(pid) = pid_res {
-        let proc = match sys.process(pid) {
-            Some(s) => s,
-            None => {
-                break;
-            },
-        };
+        let Some(proc) = sys.process(pid) else { break; };
         let exe = proc.exe().unwrap_or(Path::new("<error>")); //expect("parent process exe path unavailable");
         let name = exe.file_prefix().expect("parent process exe filename unavailable");
         par_procs.push(ParentProc {
@@ -110,8 +104,7 @@ fn main() -> ExitCode {
 
     let v = parents.iter()
         .find(|p| p.is_ssh())
-        .map(|p| ParentProc::verbosity_flags(&p.args))
-        .unwrap_or(0);
+        .map_or(0, |p| ParentProc::verbosity_flags(&p.args));
 
     if std::env::var("OP_ASKPASS_VERBOSE").is_ok() || v > 0 {
         eprintln!("Process stacks:");
@@ -124,7 +117,7 @@ fn main() -> ExitCode {
 
     if std::env::args().any(|p| p == "--is-ssh") {
         let is_ssh = parents.iter().skip(1).take(2)
-            .any(|par| par.is_ssh());
+            .any(ParentProc::is_ssh);
 
         if is_ssh { ExitCode::SUCCESS } else { ExitCode::FAILURE }
     } else if !par.is_ssh() || std::env::args().any(|p| p == "--env=pwsh") {
@@ -151,26 +144,26 @@ fn main() -> ExitCode {
                 .map(|caps| (caps.name("user").unwrap().as_str(), caps.name("host").unwrap().as_str())); // Extract the host field
 
             match opt_userhost {
-                None => eprintln!("op_askpass: unable to fetch user@host from unknown prompt: {:?}", first),
+                None => eprintln!("op_askpass: unable to fetch user@host from unknown prompt: {first:?}"),
                 Some((user, host)) => {
                     if v >= 1 { eprintln!("Parsing SSH config"); }
                     let conf = ssh_properties_for(host); // fetch op:// uri from ssh config
                     match conf.0.user {
                         None => eprintln!("op_askpass: no user specified in config, requiring manual input"),
                         Some(u) if u != user => {
-                            eprintln!("op_askpass: different user specified in config than request, requiring manual input")
+                            eprintln!("op_askpass: different user specified in config than request, requiring manual input");
                         },
                         Some(_) => match conf.query_first_ignored("OnepassUri") {
-                            None => eprintln!("op_askpass: no 1Password URI found in SSH config for host {:?}", host),
+                            None => eprintln!("op_askpass: no 1Password URI found in SSH config for host {host:?}"),
                             Some(uri) => {
                                 if v >= 1 { eprintln!("Checking 1Password CLI status"); }
                                 let op_status = OnepassCli::from_command();
                                 if v >= 1 { eprintln!("Done checking 1Password CLI status"); }
                                 match op_status {
-                                    Err(err) => eprintln!("op_askpass: {}", err),
+                                    Err(err) => eprintln!("op_askpass: {err}"),
                                     Ok(op) => {
                                         if v >= 1 { eprintln!("Reading 1Password CLI secret"); }
-                                        let op_secret = op.read(&uri);
+                                        let op_secret = op.read(uri);
                                         if v >= 1 { eprintln!("Done reading 1Password CLI secret"); }
                                         match op_secret {
                                             Err(e) => eprintln!("op_askpass: unable to read reference {uri:?}: {e}"),

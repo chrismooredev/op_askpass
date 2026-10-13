@@ -86,7 +86,7 @@ impl fmt::Display for InvalidOnepassSession {
 
 
 impl OnepassCli {
-    /// Returns a OnepassCLI struct with a valid session or returns an Err
+    /// Returns a `OnepassCLI` struct with a valid session or returns an Err
     pub fn from_env() -> Result<OnepassCli, InvalidOnepassSession> {
         let c: Vec<_> = OnepassSession::from_env().collect();
         match c.split_last() {
@@ -127,7 +127,12 @@ impl OnepassCli {
     pub fn read(&self, op_uri: &str) -> io::Result<String> {
         let pwd = std::process::Command::new("op").args(["read", op_uri, "--session", &self.0.secret]).stdout(std::process::Stdio::piped()).spawn()?;
         let pwd_out = pwd.wait_with_output()?;
-        let () = pwd_out.status.exit_ok().map_err(io::Error::other)?;
+        if !pwd_out.status.success() {
+            return Err(io::Error::other(format!(
+                "Failed to read secret: {}",
+                String::from_utf8_lossy(pwd_out.stderr.trim_ascii())
+            )));
+        }
         Ok(String::from_utf8_lossy_owned(pwd_out.stdout))
     }
 }
