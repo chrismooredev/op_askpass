@@ -7,7 +7,13 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
-cargo install op_askpass --git https://github.com/chrismooredev/op_askpass
+if grep -qs '^name = "op_askpass"' Cargo.toml; then
+    echo "Installing op_askpass from local checkout"
+    cargo install --path .
+else
+    echo "Installing op_askpass from GitHub"
+    cargo install op_askpass --git https://github.com/chrismooredev/op_askpass
+fi
 
 # Set SSH_ASKPASS_REQUIRE to "force" to ensure it is used even in non-graphical environments
 # Set SSH_ASKPASS to op_askpass
@@ -26,3 +32,12 @@ if [ -f "$HOME/.bashrc" ]; then
         echo "SSH_ASKPASS configured in .bashrc"
     fi
 fi
+
+cat <<'EOF'
+
+Note: your current shell may still need configuring. op_askpass requires:
+    export SSH_ASKPASS=op_askpass
+    export SSH_ASKPASS_REQUIRE=force
+- bash: run `source ~/.bashrc` or open a new terminal
+- zsh/other shells: add the lines above to your shell's startup file (e.g. ~/.zshrc)
+EOF
