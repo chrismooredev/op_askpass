@@ -17,20 +17,34 @@ fi
 
 # Set SSH_ASKPASS_REQUIRE to "force" to ensure it is used even in non-graphical environments
 # Set SSH_ASKPASS to op_askpass
-# Set this in .bashrc, conditionally on it not already being set, to avoid overwriting existing configurations
-# If .bashrc values are different, log and exit - do not overwrite
+# Set this in each shell rc file, conditionally on it not already being set, to avoid overwriting existing configurations
+# If an rc file has a different value, log it and fail at the end - do not overwrite
+
+conflict=0
+
+configure_rc() {
+    local rc="$1"
+    local name
+    name="$(basename "$rc")"
+    if grep -qs "export SSH_ASKPASS=op_askpass" "$rc"; then
+        echo "SSH_ASKPASS is already set to op_askpass in $name, skipping"
+    elif grep -qs "export SSH_ASKPASS=" "$rc"; then
+        echo "SSH_ASKPASS is set to a different value in $name, please resolve manually" >&2
+        conflict=1
+    else
+        echo "export SSH_ASKPASS=op_askpass" >> "$rc"
+        echo "export SSH_ASKPASS_REQUIRE=force" >> "$rc"
+        echo "SSH_ASKPASS configured in $name"
+    fi
+}
 
 if [ -f "$HOME/.bashrc" ]; then
-    if grep -q "export SSH_ASKPASS=op_askpass" "$HOME/.bashrc"; then
-        echo "SSH_ASKPASS is already set to op_askpass in .bashrc, skipping"
-    elif grep -q "export SSH_ASKPASS=" "$HOME/.bashrc"; then
-        echo "SSH_ASKPASS is set to a different value in .bashrc, please resolve manually" >&2
-        exit 1
-    else
-        echo "export SSH_ASKPASS=op_askpass" >> "$HOME/.bashrc"
-        echo "export SSH_ASKPASS_REQUIRE=force" >> "$HOME/.bashrc"
-        echo "SSH_ASKPASS configured in .bashrc"
-    fi
+    configure_rc "$HOME/.bashrc"
+fi
+
+# zsh is the default shell on macOS, where ~/.zshrc may not exist yet
+if [ -f "$HOME/.zshrc" ] || [ "$(basename "${SHELL:-}")" = "zsh" ]; then
+    configure_rc "$HOME/.zshrc"
 fi
 
 cat <<'EOF'
@@ -39,5 +53,8 @@ Note: your current shell may still need configuring. op_askpass requires:
     export SSH_ASKPASS=op_askpass
     export SSH_ASKPASS_REQUIRE=force
 - bash: run `source ~/.bashrc` or open a new terminal
-- zsh/other shells: add the lines above to your shell's startup file (e.g. ~/.zshrc)
+- zsh: run `source ~/.zshrc` or open a new terminal
+- other shells: add the lines above to your shell's startup file
 EOF
+
+exit "$conflict"

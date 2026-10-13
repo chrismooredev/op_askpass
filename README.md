@@ -40,8 +40,8 @@ export SSH_ASKPASS=op_askpass
 export SSH_ASKPASS_REQUIRE=force
 ```
 
-- **bash**: the install script appends these to `~/.bashrc` if it exists. Already-open shells won't pick them up; run `source ~/.bashrc` or open a new terminal.
-- **zsh** (macOS default), or if `~/.bashrc` doesn't exist: add the lines above to your shell's startup file yourself (e.g. `~/.zshrc`), then restart the shell.
+- **bash** / **zsh**: the install script appends these to `~/.bashrc` and/or `~/.zshrc`. Already-open shells won't pick them up; run `source ~/.bashrc` / `source ~/.zshrc` or open a new terminal.
+- **Other shells**: add the lines above to your shell's startup file yourself, then restart the shell.
 - **fish**: `set -Ux SSH_ASKPASS op_askpass; set -Ux SSH_ASKPASS_REQUIRE force`
 - **PowerShell**: the install script sets both as user environment variables and in the current session. Other already-open terminals need to be restarted.
 
